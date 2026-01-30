@@ -1,14 +1,14 @@
 # startup script:
 # python -m venv .venv
 # .venv\Scripts\activate.bat
-# pip install openpyxl requests gradio pytz
+# pip install openpyxl requests gradio pytz titlecase
 # python main.py
 
 # try:
 #     import openpyxl
 # except:
 #     import os
-#     os.system("pip install openpyxl requests gradio pytz")
+#     os.system("pip install openpyxl requests gradio pytz titlecase")
 
 import requests
 import json
@@ -19,6 +19,8 @@ import json
 import openpyxl
 from openpyxl.styles import Font, Alignment
 from collections import defaultdict
+
+from titlecase import titlecase
 
 import tempfile
 
@@ -76,12 +78,12 @@ def processarts(out):
 
         finval = ""
         if course["type"] == "Course":
-            finval += "[" + course["course"]["prefix"] + " " + course["course"]["courseNumber"] + ": " + course["course"]["courseTitle"].strip() + "]"
+            finval += "[" + course["course"]["prefix"] + " " + course["course"]["courseNumber"] + ": " + fixcase(course["course"]["courseTitle"].strip()) + "]"
         elif course["type"] == "Series":
             for art in course["series"]["courses"][:-1]:
-                finval += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "] " + course["series"]["conjunction"].upper() + " "
+                finval += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "] " + course["series"]["conjunction"].upper() + " "
             art = course["series"]["courses"][-1]
-            finval += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "]"
+            finval += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "]"
         elif course["type"] == "Requirement":
             finval += "[REQUIREMENT: " + course["requirement"]["name"] + "]"
         elif course["type"] == "GeneralEducation":
@@ -95,17 +97,17 @@ def processarts(out):
             finkey = ""
             if sendart["type"] == "Advisement": continue
             for art in sendart["items"][:-1]:
-                finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "] " + sendart["courseConjunction"].upper() + " "
+                finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "] " + sendart["courseConjunction"].upper() + " "
             art = sendart["items"][-1]
-            finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "]"
+            finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "]"
             sir[finkey] = sir.get(finkey, []) + [finval]
         sendart = course["sendingArticulation"]["items"][-1]
         if sendart["type"] != "Advisement":
             finkey = ""
             for art in sendart["items"][:-1]:
-                finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "] " + sendart["courseConjunction"].upper() + " "
+                finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "] " + sendart["courseConjunction"].upper() + " "
             art = sendart["items"][-1]
-            finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + art["courseTitle"].strip() + "]"
+            finkey += "[" + art["prefix"] + " " + art["courseNumber"] + ": " + fixcase(art["courseTitle"].strip()) + "]"
             sir[finkey] = sir.get(finkey, []) + [finval]
 
 
@@ -124,7 +126,9 @@ def processarts(out):
 def nameproc(name):
     return name.replace("University of California, ", "UC ").replace(" Los Angeles", "LA").replace("California State University, ", "CSU ")
 
-
+def fixcase(mystr):
+    if mystr == mystr.upper() or " AND " in mystr: return titlecase(mystr)
+    return mystr
 
 
 def process_articulation(source_school, destination_schools, year_range, include_classname):
@@ -155,6 +159,14 @@ def process_articulation(source_school, destination_schools, year_range, include
             if not lol.get("result"):
                 yield None, log(f"[error] articulation not found for {result2}")
                 continue
+
+        f = open("out.json", "a+")
+        f.seek(0)
+        f.truncate(0)
+        f.seek(0)
+        f.write(json.dumps(lol, indent=2))
+        f.close()
+
         out = [x["articulation"] for x in json.loads(lol["result"]["articulations"])]
         fin = processarts(out)
 
