@@ -4,11 +4,11 @@
 # pip install openpyxl requests gradio pytz
 # python main.py
 
-try:
-    import openpyxl
-except:
-    import os
-    os.system("pip install openpyxl requests gradio pytz")
+# try:
+#     import openpyxl
+# except:
+#     import os
+#     os.system("pip install openpyxl requests gradio pytz")
 
 import requests
 import json
