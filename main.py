@@ -131,8 +131,7 @@ def fixcase(mystr):
     return mystr
 
 
-def process_articulation(source_school, destination_schools, year_range, include_classname):
-
+def process_articulation(source_school, destination_schools, year_range, include_classname, include_destcoursename):
     logs = []
 
     def log(message):
@@ -144,6 +143,7 @@ def process_articulation(source_school, destination_schools, year_range, include
     destyear = next(x for x in rawyears if str(x["FallYear"]) == year_range.split("-")[0])
     myfin = {}
     classnames = {}
+    ucclassnames = {}
 
     yield None, log(f"[info] processing {len(destination_schools)} destination school(s) for {year_range} academic year")
 
@@ -176,6 +176,15 @@ def process_articulation(source_school, destination_schools, year_range, include
                 name = myc2[1:].split(": ")[0]
                 torepl[" ".join(name.split(" ")[:-1])] = "".join(x for x in "".join(name.split(" ")[:-1]) if x.isalnum())
 
+        ucclassnames[result2] = {}
+        for otherc in fin.values():
+            for otherc2 in otherc:
+                for othercus in otherc2.split(" AND "):
+                    templol = othercus[1:].split(": ")[0]
+                    for k, v in torepl.items():
+                        templol = templol.replace(k, v)
+                    ucclassnames[result2][templol] = ": ".join(othercus[1:-1].split(": ")[1:])
+
         myfin[result2] = []
         for course in fin:
             sirtoadd = " + ".join(sorted([x[1:].split(": ")[0] for x in course.split(" AND ")]))
@@ -183,10 +192,11 @@ def process_articulation(source_school, destination_schools, year_range, include
                 templol = cus[1:].split(": ")[0]
                 for k, v in torepl.items():
                     templol = templol.replace(k, v)
-                classnames[templol] = cus[1:-1].split(": ")[1]
+                classnames[templol] = ": ".join(cus[1:-1].split(": ")[1:])
             for k, v in torepl.items():
                 sirtoadd = sirtoadd.replace(k, v)
             myfin[result2].append(sirtoadd)
+            ucclassnames[result2][sirtoadd] = " / ".join(["[" + " + ".join(sorted([x[1:].split(": ")[0] + "]" for x in otherc2.split(" AND ")])) for otherc2 in fin[course]])
         myfin[result2] = list(sorted(list(set(myfin[result2])), key=lambda toproc: [toproc.split(" ")[0]] + [x for x in sum([[int(n), l] for part in toproc.replace("C100", "").split('+') for match in [re.findall(r'\d+|[A-Z]+', part.split()[-1])] for n, l in [(match[0], match[1] if len(match) > 1 else 'A')]], [])]))
         yield None, log(f"[info] completed articulations for {result2}, found {len(myfin[result2])} courses")
 
@@ -226,7 +236,7 @@ def process_articulation(source_school, destination_schools, year_range, include
             ws.cell(row+len(ucs)+3+(1 if include_classname else 0), 1, nameproc(uc))
             for col, course in enumerate(courses_sorted, 2):
                 if course in myfin[uc]:
-                    ws.cell(row, col, "✔")
+                    ws.cell(row, col, ucclassnames[uc][course] if include_destcoursename else "✔")
                 if include_classname: ws.cell(total_row+1, col, " + ".join([classnames[x] for x in course.split(" + ")]))
 
         ws.cell(total_row, 1, "Total")
@@ -234,7 +244,9 @@ def process_articulation(source_school, destination_schools, year_range, include
         ws.cell(total_row+len(ucs)+3+(1 if include_classname else 0), 1, "Total")
         if include_classname: ws.cell(total_row+len(ucs)+5, 1, "Course Name")
         for col in range(2, len(courses_sorted) + 2):
-            ws.cell(total_row, col, f"=COUNTIF({openpyxl.utils.get_column_letter(col)}2:{openpyxl.utils.get_column_letter(col)}{len(ucs)+1}, \"✔\")")
+            mych = "COUNTA" if include_destcoursename else "COUNTIF"
+            mych2 = "" if include_destcoursename else ", \"✔\""
+            ws.cell(total_row, col, f"={mych}({openpyxl.utils.get_column_letter(col)}2:{openpyxl.utils.get_column_letter(col)}{len(ucs)+1}{mych2})")
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 14
 
         if include_classname: total_row += 1
@@ -287,6 +299,7 @@ with gr.Blocks(title="Articulatify") as iface:
     destination = gr.Dropdown(label="Destination Institutions", multiselect=True, visible=False)
     year = gr.Dropdown(label="Year", visible=False)
     include_classname = gr.Checkbox(label="Include Class Names", value=False)
+    include_destcoursename = gr.Checkbox(label="Include Destination Course Number", value=True)
 
     with gr.Row():
         submit = gr.Button("Generate")
@@ -320,16 +333,8 @@ with gr.Blocks(title="Articulatify") as iface:
         outputs=year
     )
 
-    submit.click(fn=process_articulation, inputs=[source, destination, year, include_classname], outputs=[output, logs])
+    submit.click(fn=process_articulation, inputs=[source, destination, year, include_classname, include_destcoursename], outputs=[output, logs])
 
 
 if __name__ == "__main__":
-    iface.launch(pwa=True, css="""
-    footer{display:none !important}
-    #logs-box .generating {border:none !important}
-    #logs-box textarea {scroll-behavior:auto !important}
-    #logs-box.generating {border-color:var(--border-color-primary) !important}
-    .generating {border-color:var(--border-color-primary) !important}
-""", favicon_path="./lolicon.png", server_name="0.0.0.0")
-
-# include course name
+    iface.launch(pwa=True, css="footer{display:none !important}\n#logs-box .generating {border:none !important}\n#logs-box textarea {scroll-behavior:auto !important}\n#logs-box.generating {border-color:var(--border-color-primary) !important}\n.generating {border-color:var(--border-color-primary) !important}", favicon_path="./lolicon.png", server_name="0.0.0.0")
