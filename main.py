@@ -14,7 +14,7 @@ from titlecase import titlecase
 
 all_institutions = []
 destination_institutions = []
-academic_years = []
+academic_years = requests.get("https://assist.org/api/AcademicYears").json()
 source_institution = {}
 
 
@@ -39,7 +39,7 @@ def course_sort_key(course_string):
     return [course_string.split(" ")[0]] + [
         x for x in sum([
             [int(n), l]
-            for part in course_string.replace("C100", "").split('+')
+            for part in course_string.replace("C100", "").split(" + ")
             for match in [re.findall(r'\d+|[A-Z]+', part.split()[-1])]
             for n, l in [(match[0], match[1] if len(match) > 1 else 'A')]
         ], [])
