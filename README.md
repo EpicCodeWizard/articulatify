@@ -4,3 +4,4 @@ Generate bulk course articulations spreadsheets using Assist.org. Built using Py
 pip install openpyxl requests gradio pytz titlecase
 gradio main.py
 ```
+Output index.html also provided.
